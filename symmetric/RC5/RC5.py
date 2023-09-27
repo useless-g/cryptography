@@ -44,13 +44,13 @@ class RC5:
         self.S = [0 for _ in range(t)]
         self.S[0] = P
         for i in range(1, t):
-            self.S[i] = self.S[i - 1] + Q
+            self.S[i] = (self.S[i - 1] + Q) % self.modulo
 
-        i = j = 0
-        A = B = 0
+        A = B = i = j = 0
+
         for _ in range(3 * max(t, c)):
-            A = self.S[i] = ROTL(self.add_modulo(self.S[i], self.add_modulo(A, B)), 3, self.w)
-            B = L[j] = ROTR(self.add_modulo(L[j], self.add_modulo(A, B)), self.add_modulo(A, B), self.w)
+            A = self.S[i] = ROTL(self.add_modulo(self.S[i], (A + B) % self.modulo), 3, self.w) % self.modulo
+            B = L[j] = ROTR(self.add_modulo(L[j], self.add_modulo(A, B)), self.add_modulo(A, B), self.w) % self.modulo
 
             i = (i + 1) % t
             j = (j + 1) % c
@@ -62,21 +62,21 @@ class RC5:
         return (a - b) % self.modulo
 
     def encrypt(self, text):
-        A, B = self.text_to_AB(text)
+        A, B = self.text_to_AB(text)  # A: 1919252337    B:  1919252337
         A = self.add_modulo(A, self.S[0])
         B = self.add_modulo(B, self.S[1])
         for i in range(1, self.r + 1):
-            A = self.add_modulo(ROTL(A ^ B, B, self.w), self.S[2 * i])
-            B = self.add_modulo(ROTR(B ^ A, A, self.w), self.S[2 * i + 1])
+            A = (ROTL(A ^ B, B, self.w) + self.S[2 * i]) % self.modulo
+            B = (ROTR(B ^ A, A, self.w) + self.S[2 * i + 1]) % self.modulo
         return self.AB_to_text(A, B)
 
     def decrypt(self, text):
-        A, B = self.text_to_AB(text)
+        A, B = self.text_to_AB(text)  # A:476140826    B: 3922915879
         for i in range(self.r, 0, -1):
-            B = ((self.sub_modulo(B, self.S[2 * i + 1])) >> (A % self.w)) ^ A
-            A = ((self.sub_modulo(A, self.S[2 * i])) >> (B % self.w)) ^ B
+            B = (ROTR(self.sub_modulo(B, self.S[2 * i + 1]), A, self.w) % self.modulo) ^ A
+            A = (ROTR(self.sub_modulo(A, self.S[2 * i]), B, self.w) % self.modulo) ^ B
         B = self.sub_modulo(B, self.S[1])
-        A = self.sub_modulo(A, self.S[1])
+        A = self.sub_modulo(A, self.S[0])
         return self.AB_to_text(A, B)
 
     def text_to_AB(self, text):
@@ -85,7 +85,7 @@ class RC5:
                  range(ceil(self.w / 8) * 2 - 1, ceil(self.w / 8) - 1, -1)])
         return A, B
 
-    def AB_to_text(self, A, B):
+    def AB_to_text(self, A, B):  #
         res = ''
         while A:
             res += chr(A % 256)
@@ -98,7 +98,7 @@ class RC5:
 
 if __name__ == "__main__":
     rc = RC5()
-    text = 'qwerqwerqwerqwer'
+    text = 'qwerqwer'
     # AB = rc.text_to_AB(text)
     # print(AB)
     # print(rc.AB_to_text(AB[0], AB[1]))
