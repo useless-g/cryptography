@@ -110,23 +110,30 @@ class RSA:
                 return False
         return True
 
-    def cipher(self, text: int = 0x48656c6c6f2c20776f726c642148656c6c6f2):
-        text = text % 2 ** (256 * 8)
-        print((len(hex(text)) - 2) // 2, hex(text))
-        if (len(hex(text)) - 2) // 2 < 256:
+    def cipher(self, text: int):
+        text = text % 2 ** (256 * 8)  # > 256 bytes
+        print("opentext:", (len(hex(text)) - 2) / 2, hex(text))
+        if (len(hex(text)) - 2) // 2 < 256:  # < 256 bytes
             text <<= 1
             text += 1
             text <<= 7
-            while (len(hex(text)) - 2) // 2 < 256:
-                text <<= 1
+            text <<= (256 - (len(hex(text)) - 2) // 2) * 8
+            # while (len(hex(text)) - 2) // 2 < 256:
+            #     text <<= 1
+            print("paddtext:", (len(hex(text)) - 2) / 2, hex(text))
+            return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
+                else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
 
-        print((len(hex(text)) - 2) / 2, hex(text))
-        return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
-            else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
+        else:  # = 256 bytes
+            padding = 1 << 255 * 8 + 7
+            return (fast_pow_mod(text, self.private_key[0], self.private_key[1]) << 256 * 8) + \
+                fast_pow_mod(padding, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
+                else (fast_pow_mod(text, self.public_key[0], self.public_key[1]) << 256 * 8) + \
+                fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
 
     @discard_padding
-    def decipher(self, cipher_text: int = 0):
-        print((len(hex(cipher_text)) - 2) / 2, hex(cipher_text))
+    def decipher(self, cipher_text: int):
+        print("ciphtext:", (len(hex(cipher_text)) - 2) / 2, hex(cipher_text))
         return fast_pow_mod(cipher_text, self.private_key[0], self.private_key[1]) if self.cipher_key == "public" \
             else fast_pow_mod(cipher_text, self.public_key[0], self.public_key[1])  # self.cipher_key == "private"
 
@@ -134,7 +141,7 @@ class RSA:
 if __name__ == "__main__":
     t = time()
     Alice = RSA("private")
-    c = Alice.cipher()
+    c = Alice.cipher(0x48656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c7777777777777720776f726c642148656c6c6f223232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f223)
     deciphered_text = Alice.decipher(cipher_text=c)
-    print((len(hex(deciphered_text)) - 2) / 2, hex(deciphered_text))
+    print("decptext:", (len(hex(deciphered_text)) - 2) / 2, hex(deciphered_text))
     print(f"time spent: {time() - t}")
