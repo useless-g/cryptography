@@ -6,11 +6,18 @@ from sieve import first_100_primes_list
 from math import gcd
 from fast_pow_mod import fast_pow_mod
 from euclid_extended import euclid_extended
+from functools import wraps
 
 
-class KeyType(Enum):
-    private = "private"
-    public = "public"
+def discard_padding(decipher_func):
+    @wraps(decipher_func)
+    def inner(*args, **kwargs):
+        res = decipher_func(*args, **kwargs)
+        while res % 2 == 0:
+            res >>= 1
+        res >>= 1
+        return res
+    return inner
 
 
 class RSA:
@@ -50,7 +57,7 @@ class RSA:
             if gcd(phi, e) == 1:
                 break
         # print(f"e = {e}")
-        e_inverse = fast_pow_mod(e, phi - 1, n)
+        # e_inverse = fast_pow_mod(e, phi - 1, n)
         e_inverse = euclid_extended(e, phi)[0]
         # print(f"e_inverse = {e_inverse}")
         # print((e * e_inverse) % phi)
@@ -103,12 +110,21 @@ class RSA:
                 return False
         return True
 
-    def cipher(self, text: int = 0x6f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c654821646c726f77202c6f6c6c6548
-):
+    def cipher(self, text: int = 0x48656c6c6f2c20776f726c642148656c6c6f2):
+        text = text % 2 ** (256 * 8)
+        print((len(hex(text)) - 2) // 2, hex(text))
+        if (len(hex(text)) - 2) // 2 < 256:
+            text <<= 1
+            text += 1
+            text <<= 7
+            while (len(hex(text)) - 2) // 2 < 256:
+                text <<= 1
+
         print((len(hex(text)) - 2) / 2, hex(text))
         return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
             else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
 
+    @discard_padding
     def decipher(self, cipher_text: int = 0):
         print((len(hex(cipher_text)) - 2) / 2, hex(cipher_text))
         return fast_pow_mod(cipher_text, self.private_key[0], self.private_key[1]) if self.cipher_key == "public" \
@@ -117,7 +133,7 @@ class RSA:
 
 if __name__ == "__main__":
     t = time()
-    Alice = RSA()
+    Alice = RSA("private")
     c = Alice.cipher()
     deciphered_text = Alice.decipher(cipher_text=c)
     print((len(hex(deciphered_text)) - 2) / 2, hex(deciphered_text))
