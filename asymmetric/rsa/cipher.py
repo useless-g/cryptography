@@ -111,7 +111,8 @@ class RSA:
         return True
 
     def cipher(self, text: int):
-        text = text % 2 ** (256 * 8)  # > 256 bytes
+        while
+        text = text % 2 ** (257 * 8)  # > 256 bytes
         print("opentext:", (len(hex(text)) - 2) / 2, hex(text))
         if (len(hex(text)) - 2) // 2 < 256:  # < 256 bytes
             text <<= 1
@@ -126,10 +127,14 @@ class RSA:
 
         else:  # = 256 bytes
             padding = 1 << 255 * 8 + 7
-            return (fast_pow_mod(text, self.private_key[0], self.private_key[1]) << 256 * 8) + \
-                fast_pow_mod(padding, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
-                else (fast_pow_mod(text, self.public_key[0], self.public_key[1]) << 256 * 8) + \
-                fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
+            if self.cipher_key == "private":
+                cipher = fast_pow_mod(text, self.private_key[0], self.private_key[1]) << 256 * 8
+                cipher += fast_pow_mod(padding, self.private_key[0], self.private_key[1])
+            else:  # self.cipher_key == "public"
+                cipher = fast_pow_mod(text, self.public_key[0], self.public_key[1]) << 256 * 8
+                cipher += fast_pow_mod(text, self.public_key[0], self.public_key[1])
+            return cipher
+
 
     @discard_padding
     def decipher(self, cipher_text: int):
@@ -141,7 +146,7 @@ class RSA:
 if __name__ == "__main__":
     t = time()
     Alice = RSA("private")
-    c = Alice.cipher(0x48656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c7777777777777720776f726c642148656c6c6f223232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f223)
+    c = Alice.cipher(0x48656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c2077446f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c7777777777777720776f726c642148656c6c6f223232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f223)
     deciphered_text = Alice.decipher(cipher_text=c)
     print("decptext:", (len(hex(deciphered_text)) - 2) / 2, hex(deciphered_text))
     print(f"time spent: {time() - t}")
