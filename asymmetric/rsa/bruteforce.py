@@ -1,9 +1,12 @@
+
 m, e = map(int, input('введите m и e\n').split(' '))
+p = 1
 for i in range(2, m + 1):
     if m % i == 0:
+        p = i
         break
+
 cipher = list(map(int, input('введите через пробел числа\n').split(' ')))
-p = i
 q = (m // p)
 print(f"dividers of m is {p} & {q}")
 fi = (p - 1) * (q - 1)
