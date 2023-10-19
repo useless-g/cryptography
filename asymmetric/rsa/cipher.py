@@ -1,5 +1,4 @@
 import random
-from enum import Enum
 from time import time
 from typing import Union, Tuple, Literal
 from sieve import first_100_primes_list
@@ -13,22 +12,24 @@ def discard_padding(decipher_func):
     @wraps(decipher_func)
     def inner(*args, **kwargs):
         res = decipher_func(*args, **kwargs)
-        while res % 2 == 0:
-            res >>= 1
-        res >>= 1
-        return res
+        for i in range(1, 257):
+            if res[-i] == 128:
+                return res[1:-i]
+        return res[1:]
     return inner
 
 
 class RSA:
     def __init__(self,
                  cipher_key: Literal["public", "private"] = "public",
-                 key: Union[None, Tuple[int, Tuple[int, int]]] = None) -> None:
+                 # key_len_bits : Literal[2048, 4096] = 2048,
+                 key: Union[None, Tuple[Tuple[int, int], Tuple[int, int]]] = None) -> None:
         """
         :param cipher_key: indicate which keys - public or private, it will use to cipher
         :param key: a pair of private and public keys ((d, n), (e, n)), by default they will be generated
         """
-
+        self.key_len_bits = ( len(hex(key[0][0])) - 2) // 2 if key else 2048
+        assert self.key_len_bits in (2048, 4096)
         self.private_key, self.public_key = key or self.generate_keys()
         self.cipher_key = cipher_key
 
@@ -66,16 +67,18 @@ class RSA:
         # print((d * e) % phi)
         return (d, n), (e, n)
 
-    @staticmethod
-    def n_bit_random(n: int = 1024):
-        # Returns a random number
-        # between 2**(n-1)+1 and 2**n-1
+    def n_bit_random(self):
+        """
+        Returns a random number
+        between 2**(n-1)+1 and 2**n-1
+        """
+        n = self.key_len_bits // 2
         return random.randrange(2 ** (n - 1) + 1, 2 ** n - 1)
 
-    def get_low_level_prime(self, n: int = 1024):
+    def get_low_level_prime(self):
         first_primes_list = first_100_primes_list
         while True:
-            prime_candidate = self.n_bit_random(n)
+            prime_candidate = self.n_bit_random()
 
             for divisor in first_primes_list:
                 if (prime_candidate % divisor == 0) and (divisor ** 2 <= prime_candidate):
@@ -110,43 +113,73 @@ class RSA:
                 return False
         return True
 
-    def cipher(self, text: int):
-        while
-        text = text % 2 ** (257 * 8)  # > 256 bytes
-        print("opentext:", (len(hex(text)) - 2) / 2, hex(text))
-        if (len(hex(text)) - 2) // 2 < 256:  # < 256 bytes
-            text <<= 1
-            text += 1
-            text <<= 7
-            text <<= (256 - (len(hex(text)) - 2) // 2) * 8
-            # while (len(hex(text)) - 2) // 2 < 256:
-            #     text <<= 1
-            print("paddtext:", (len(hex(text)) - 2) / 2, hex(text))
-            return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
-                else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
+    def cipher_block(self, text: int):
+        return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
+            else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
 
-        else:  # = 256 bytes
-            padding = 1 << 255 * 8 + 7
-            if self.cipher_key == "private":
-                cipher = fast_pow_mod(text, self.private_key[0], self.private_key[1]) << 256 * 8
-                cipher += fast_pow_mod(padding, self.private_key[0], self.private_key[1])
-            else:  # self.cipher_key == "public"
-                cipher = fast_pow_mod(text, self.public_key[0], self.public_key[1]) << 256 * 8
-                cipher += fast_pow_mod(text, self.public_key[0], self.public_key[1])
-            return cipher
+    def decipher_block(self, cipher_text: bytes):
+        cipher_text = int.from_bytes(cipher_text, 'big')
+        return fast_pow_mod(cipher_text, self.private_key[0], self.private_key[1]).to_bytes(256, 'big') if self.cipher_key == "public" \
+            else fast_pow_mod(cipher_text, self.public_key[0], self.public_key[1]).to_bytes(256, 'big')  # self.cipher_key == "private"
 
+    def cipher(self, big_text_bytes: bytes):
+        # print("openedtext:", (len(big_text) - 2) / 2, hex(big_text))
+        cur_len = len(big_text_bytes)
+        big_text = (128 << cur_len * 8)
+        big_text += int.from_bytes(big_text_bytes, 'big')
+        block_size = self.key_len_bits
+        cur_len = len(bin(big_text)) - 2
+
+        if cur_len % block_size:
+            big_text <<= 1
+            big_text += 1
+            big_text <<= block_size - ((cur_len+1) % block_size)
+        else:
+            big_text <<= 1
+            big_text += 1
+            big_text <<= block_size - 1
+
+        cur_len = len(bin(big_text)) - 2
+
+        res = 128
+        while cur_len:
+            block = (big_text << block_size) >> cur_len
+            print("block", block.to_bytes(256, 'big'))
+            big_text >>= block_size
+            res <<= block_size
+            res += self.cipher_block(block)
+            cur_len -= block_size
+        return res.to_bytes((len(hex(res)) - 2) // 2, 'big')[1:]
 
     @discard_padding
-    def decipher(self, cipher_text: int):
-        print("ciphtext:", (len(hex(cipher_text)) - 2) / 2, hex(cipher_text))
-        return fast_pow_mod(cipher_text, self.private_key[0], self.private_key[1]) if self.cipher_key == "public" \
-            else fast_pow_mod(cipher_text, self.public_key[0], self.public_key[1])  # self.cipher_key == "private"
+    def decipher(self, big_cipher_text_bytes: bytes):
+        # print("ciphertext:", (len(big_cipher_text)) - 2) / 2, hex(big_cipher_text))
+        # cur_len = len(big_cipher_text_bytes)
+        # big_cipher_text = (128 << cur_len * 8)
+        # big_cipher_text += int.from_bytes(big_cipher_text_bytes, 'big')
+
+        block_size_bytes = self.key_len_bits // 8
+        cur_len = len(big_cipher_text_bytes)
+
+        res = bytes(0)
+        start = 0
+        while cur_len:
+            block = big_cipher_text_bytes[start:block_size_bytes + start]
+            # print("dlock", block)
+            start += block_size_bytes
+            deciphered = self.decipher_block(block)
+            res += deciphered
+            # print("dbres", deciphered)
+            cur_len -= block_size_bytes
+
+        return res
 
 
 if __name__ == "__main__":
     t = time()
-    Alice = RSA("private")
-    c = Alice.cipher(0x48656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c2077446f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c7777777777777720776f726c642148656c6c6f223232323232348656c6c6f2c20776f726c642148656c6c6f22323232323232348656c6c6f2c20776f726c642148656c6c6f223)
-    deciphered_text = Alice.decipher(cipher_text=c)
-    print("decptext:", (len(hex(deciphered_text)) - 2) / 2, hex(deciphered_text))
+    Alice = RSA(cipher_key="public")
+    c = Alice.cipher(('Hello, world!' * int(100)).encode('ascii'))
+    deciphered_text = Alice.decipher(c)
+    print(deciphered_text)
+    # print("deciphtext:", len(deciphered_text), deciphered_text.decode('ascii'))
     print(f"time spent: {time() - t}")
