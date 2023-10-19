@@ -14,8 +14,8 @@ def discard_padding(decipher_func):
         res = decipher_func(*args, **kwargs)
         for i in range(1, 257):
             if res[-i] == 128:
-                return res[1:-i]
-        return res[1:]
+                return res[:-i]
+        return res
     return inner
 
 
@@ -113,9 +113,10 @@ class RSA:
                 return False
         return True
 
-    def cipher_block(self, text: int):
-        return fast_pow_mod(text, self.private_key[0], self.private_key[1]) if self.cipher_key == "private" \
-            else fast_pow_mod(text, self.public_key[0], self.public_key[1])  # self.cipher_key == "public"
+    def cipher_block(self, text: bytes):
+        text = int.from_bytes(text, 'big')
+        return fast_pow_mod(text, self.private_key[0], self.private_key[1]).to_bytes(256, 'big') if self.cipher_key == "private" \
+            else fast_pow_mod(text, self.public_key[0], self.public_key[1]).to_bytes(256, 'big')  # self.cipher_key == "public"
 
     def decipher_block(self, cipher_text: bytes):
         cipher_text = int.from_bytes(cipher_text, 'big')
@@ -124,40 +125,58 @@ class RSA:
 
     def cipher(self, big_text_bytes: bytes):
         # print("openedtext:", (len(big_text) - 2) / 2, hex(big_text))
+        block_size_bytes = self.key_len_bits // 8
         cur_len = len(big_text_bytes)
-        big_text = (128 << cur_len * 8)
-        big_text += int.from_bytes(big_text_bytes, 'big')
-        block_size = self.key_len_bits
-        cur_len = len(bin(big_text)) - 2
-
-        if cur_len % block_size:
-            big_text <<= 1
-            big_text += 1
-            big_text <<= block_size - ((cur_len+1) % block_size)
+        print(big_text_bytes)
+        if cur_len % block_size_bytes:
+            big_text_bytes += b'\x80'
+            big_text_bytes += bytes(block_size_bytes - ((cur_len + 1) % block_size_bytes))
         else:
-            big_text <<= 1
-            big_text += 1
-            big_text <<= block_size - 1
+            big_text_bytes += b'\x80'
+            big_text_bytes += bytes(block_size_bytes - 1)
+        print(big_text_bytes)
+        cur_len = len(big_text_bytes)
+        res = bytes(0)
+        start = 0
 
-        cur_len = len(bin(big_text)) - 2
-
-        res = 128
         while cur_len:
-            block = (big_text << block_size) >> cur_len
-            print("block", block.to_bytes(256, 'big'))
-            big_text >>= block_size
-            res <<= block_size
-            res += self.cipher_block(block)
-            cur_len -= block_size
-        return res.to_bytes((len(hex(res)) - 2) // 2, 'big')[1:]
+            block = big_text_bytes[start:block_size_bytes + start]
+            start += block_size_bytes
+            ciphered = self.cipher_block(block)
+            res += ciphered
+            print("cbres", ciphered)
+            cur_len -= block_size_bytes
+        return res
+
+        # cur_len = len(big_text_bytes)
+        # big_text = (128 << cur_len * 8)
+        # big_text += int.from_bytes(big_text_bytes, 'big')
+        # block_size = self.key_len_bits
+        # cur_len = len(bin(big_text)) - 2
+        #
+        # if cur_len % block_size:
+        #     big_text <<= 1
+        #     big_text += 1
+        #     big_text <<= block_size - ((cur_len+1) % block_size)
+        # else:
+        #     big_text <<= 1
+        #     big_text += 1
+        #     big_text <<= block_size - 1
+        #
+        # cur_len = len(bin(big_text)) - 2
+        #
+        # res = 128
+        # while cur_len:
+        #     block = (big_text << block_size) >> cur_len
+        #     print("block", block.to_bytes(256, 'big'))
+        #     big_text >>= block_size
+        #     res <<= block_size
+        #     res += self.cipher_block(block)
+        #     cur_len -= block_size
+        # return res.to_bytes((len(hex(res)) - 2) // 2, 'big')[1:]
 
     @discard_padding
     def decipher(self, big_cipher_text_bytes: bytes):
-        # print("ciphertext:", (len(big_cipher_text)) - 2) / 2, hex(big_cipher_text))
-        # cur_len = len(big_cipher_text_bytes)
-        # big_cipher_text = (128 << cur_len * 8)
-        # big_cipher_text += int.from_bytes(big_cipher_text_bytes, 'big')
-
         block_size_bytes = self.key_len_bits // 8
         cur_len = len(big_cipher_text_bytes)
 
@@ -169,7 +188,7 @@ class RSA:
             start += block_size_bytes
             deciphered = self.decipher_block(block)
             res += deciphered
-            # print("dbres", deciphered)
+            print("dbres", deciphered)
             cur_len -= block_size_bytes
 
         return res
@@ -178,8 +197,9 @@ class RSA:
 if __name__ == "__main__":
     t = time()
     Alice = RSA(cipher_key="public")
-    c = Alice.cipher(('Hello, world!' * int(100)).encode('ascii'))
+    msg = ('Hello, world!' * int(100)).encode('ascii')
+    c = Alice.cipher(msg)
     deciphered_text = Alice.decipher(c)
     print(deciphered_text)
-    # print("deciphtext:", len(deciphered_text), deciphered_text.decode('ascii'))
+    assert msg == deciphered_text
     print(f"time spent: {time() - t}")
