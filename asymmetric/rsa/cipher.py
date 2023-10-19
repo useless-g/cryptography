@@ -53,7 +53,7 @@ class RSA:
                 q = self.get_low_level_prime()
                 if q != p and self.is_Miller_Rabin_test_passed(q):
                     break
-            if len(bin(n := p * q)) - 2 == 2048:
+            if len(bin(n := p * q)) - 2 >= 2048:
                 break
         # print(f"q = {q}")
 
@@ -175,13 +175,13 @@ class RSA:
 
 if __name__ == "__main__":
     t = time()
-    Alice = RSA(cipher_key="private",
+    Alice = RSA(cipher_key="public",
                 # key=((0xacd8c03c3823f8c6a172df413ec4556a4c3bccaf14184037d35599a9b285bc7a01760511f8f8b64383840d45144ab4a346d01b36bdcce6ec4c284db5ab6f3205ce957a050b136f94a1f8f05509d2124540253f1bf9755f9a249cf2b61ff13a525ec4834b39381a2bea60d671057dfefa83308ee76f1379ee3e255630dd93777b7ed68bbdb782fc8613f4017616f000c6553e86957d75ad8281ae7a95eca108f23db01b6b10345361b91574f9c84ba9584bd0492dfca1176c9ac6bf8af335511f2758edffe04a2f9f26c7bae1fcb284cead8b0f26189db186e1fc89bdfce714f0e6fb2dc85fdc688c8b6fba70a98b53b4e015c524580c3c2cc77be9b4ecafe6dd, 0xb970b92842e1e7c5c004c2473ee1e5251b0c34bbf94f186d5857416adeaef048de5e1c53040ccec1d1b328362305c6185eb43534714cfc1b572d0bfe6176a3813a9d8b655707e0af27f67b74d8b29e07fa0cd974088d0420356aa90dbeda8c9f2c333b4c45d3c3b22ee3b62ed23744f101b74674b355d47224192892c3287015084893c7c7acb9325e3eb538f8bb2e6f9ce57b03c816eae15c03e4cf1b2c5d8e36612504135bef18f48a2105b23ca604ba0f57c4b74e847c51bace61fcd07537ae53ae272a1ae1b91fd0f2203bf0368c56bd826642c59b538f370d9cd7c6bb79290cb4eb31e8d1f7c862f0ac66cee110ce8299da85887dc7629ab0566cbbc319), (0x962b8d7e807481fad906a18f3c365e30c344ee8561176d500b208f1937c22416b114be8ed5b15523dbf5e60541a3d4e916d0c8a0fb569f2c4bd1feda3753222ffafb2d5af8f02f6c296e8c94bbeb914e8280611af8b44a4ef7a47dc9808df4a2e1a3ec52f379d9da6db2f8e311a9f85cbe711e5c44e6c11699866c4eb6040cb7be7a1c72874869417fb3abbc7abf036a2f5f400fbc6900bcf2f225a8eb4363521d2bbc7638d0cbdf23fac090df368622a9b99f7fd65e3f70f870f1c863745b9637ef22ef50522cb75882cfffce7ac49630e3e9d15e3f87b0cc5a8ceced93184fdc53d43f9d46893c9c5c82b34470058486fa87bae82bfa4810be74ab13327f5, 0xb970b92842e1e7c5c004c2473ee1e5251b0c34bbf94f186d5857416adeaef048de5e1c53040ccec1d1b328362305c6185eb43534714cfc1b572d0bfe6176a3813a9d8b655707e0af27f67b74d8b29e07fa0cd974088d0420356aa90dbeda8c9f2c333b4c45d3c3b22ee3b62ed23744f101b74674b355d47224192892c3287015084893c7c7acb9325e3eb538f8bb2e6f9ce57b03c816eae15c03e4cf1b2c5d8e36612504135bef18f48a2105b23ca604ba0f57c4b74e847c51bace61fcd07537ae53ae272a1ae1b91fd0f2203bf0368c56bd826642c59b538f370d9cd7c6bb79290cb4eb31e8d1f7c862f0ac66cee110ce8299da85887dc7629ab0566cbbc319))
                 )
     print(((Alice.private_key[0], Alice.private_key[1]),  (Alice.public_key[0], Alice.public_key[1])))
     print(f"keygen time spent: {time() - t}")
-    msg = ('Hello, world!' * int(100)).encode('ascii')
-    # msg = ('Z' * 2563).encode('ascii')
+    # msg = ('Hello, world!' * int(100)).encode('ascii')
+    msg = ('Z' * 2564).encode('ascii')
     t = time()
     c = Alice.cipher(msg)
     print(c)
