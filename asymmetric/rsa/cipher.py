@@ -12,9 +12,22 @@ def discard_padding(decipher_func):
     @wraps(decipher_func)
     def inner(*args, **kwargs):
         res = decipher_func(*args, **kwargs)
+        result = bytes(0)
+        for i in range(0, len(res), 256):
+            chunk = res[i:i+256]
+            j = 0
+            for byte in chunk:
+                if byte != 0:
+                    if byte == 1:
+                        j += 1
+                    break
+                j += 1
+            result += chunk[j + 1:]
+
+
         for i in range(1, 257):
-            if res[-i] == 128:
-                return res[:-i]
+            if result[-i] == 128:
+                return result[:-i]
         return None
     return inner
 
@@ -133,7 +146,8 @@ class RSA:
 
     def cipher(self, big_text_bytes: bytes):
         # print("openedtext:", (len(big_text) - 2) / 2, hex(big_text))
-        block_size_bytes = self.key_len_bits // 8
+        block_size_bytes = self.key_len_bits // 8 - 2
+        big_text_bytes = b'\x01' + big_text_bytes
         cur_len = len(big_text_bytes)
         if cur_len % block_size_bytes:
             big_text_bytes += b'\x80'
@@ -182,6 +196,7 @@ if __name__ == "__main__":
     print(f"keygen time spent: {time() - t}")
     # msg = ('Hello, world!' * int(100)).encode('ascii')
     msg = ('Z' * 2564).encode('ascii')
+    msg = b'\x00' * 255
     t = time()
     c = Alice.cipher(msg)
     print(c)
